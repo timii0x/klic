@@ -1,0 +1,31 @@
+name: Build desktop apps
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-2022, macos-15, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    env:
+      CMAKE_POLICY_VERSION_MINIMUM: '3.5'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.92.0
+      - uses: Swatinem/rust-cache@v2
+      - name: Linux libraries
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y build-essential cmake pkg-config libasound2-dev libx11-dev libxi-dev libxcursor-dev libxrandr-dev libxinerama-dev libgl1-mesa-dev libwayland-dev libxkbcommon-dev
+      - run: cargo test --workspace --locked
+      - run: cargo build --release --workspace --locked
+      - run: python scripts/package.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ServerKlic-${{ matrix.os }}
+          path: dist/*.zip
+          if-no-files-found: error
